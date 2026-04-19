@@ -1,0 +1,37 @@
+{
+  "version": 4,
+  "configurations": [
+    {
+      "name": "MinGW",
+      "intelliSenseMode": "windows-gcc-x64",
+      "compilerPath": "C:/MinGW/bin/g++.exe",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "defines": [
+        "_DEBUG",
+        "UNICODE",
+        "_UNICODE"
+      ],
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "browse": {
+        "path": [
+          "${workspaceFolder}",
+          "${workspaceFolder}/**"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    },
+    {
+      "name": "MSVC",
+      "intelliSenseMode": "windows-msvc-x64",
+      "compilerPath": "C:/Program Files/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/<version>/bin/Hostx64/x64/cl.exe",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ]
+    }
+  ]
+}
