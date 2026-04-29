@@ -1,5 +1,11 @@
 #include "Wall.h"
 
+Wall::Wall()
+    : x(0),
+      y(0),
+      exitWall(false),
+      gateWall(false) {}
+
 Wall::Wall(int _x, int _y, bool _isExit, bool _isGate)
     : x(_x),
       y(_y),

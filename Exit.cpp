@@ -1,5 +1,14 @@
 #include "Exit.h"
 
+Exit::Exit()
+    : x(0),
+      y(0),
+      color(' '),
+      orientation(' '),
+      initialLength(0),
+      finalLength(0),
+      stepChange(0) {}
+
 // Configura la salida con su posicion, color y reglas de longitud.
 Exit::Exit(int _x, int _y, char _color, char _ori, int _li, int _lf, int _step)
     : x(_x),
@@ -39,18 +48,21 @@ int Exit::getStepChange() const {
 }
 
 int Exit::getLengthAtStep(int step) const {
-    if (step <= 0) {
+    if (stepChange <= 0 || initialLength == finalLength) {
         return initialLength;
     }
 
-    int length = initialLength + (step * stepChange);
-    if (stepChange >= 0 && length > finalLength) {
-        return finalLength;
+    int changes = step / stepChange;
+    int diff = initialLength > finalLength ? (initialLength - finalLength) : (finalLength - initialLength);
+    int cycle = 2 * diff;
+    int mod = changes % cycle;
+    int offset = (mod <= diff) ? mod : (cycle - mod);
+
+    if (initialLength >= finalLength) {
+        return initialLength - offset;
+    } else {
+        return initialLength + offset;
     }
-    if (stepChange < 0 && length < finalLength) {
-        return finalLength;
-    }
-    return length;
 }
 
 bool Exit::reachesFinalLengthAtStep(int step) const {

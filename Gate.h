@@ -9,6 +9,9 @@ private:
     int pasosCambio;
 
 public:
+    // Constructor por defecto.
+    Gate();
+
     // Constructor de una compuerta con cambio de color por tiempo.
     Gate(int _x, int _y, char _ori, char _ci, char _cf, int _paso);
 

@@ -1,8 +1,19 @@
 #include "Block.h"
 
+Block::Block()
+    : id(0),
+      colorLock(0),
+      color(' '),
+      ancho(0),
+      altura(0),
+      x(0),
+      y(0),
+      geometry(nullptr) {}
+
 // Inicializa todos los atributos del bloque al crearlo.
-Block::Block(int _id, char _color, int _ancho, int _altura, int _x, int _y, bool* _geo)
+Block::Block(int _id, int _colorLock, char _color, int _ancho, int _altura, int _x, int _y, bool* _geo)
     : id(_id),
+      colorLock(_colorLock),
       color(_color),
       ancho(_ancho),
       altura(_altura),
@@ -12,6 +23,10 @@ Block::Block(int _id, char _color, int _ancho, int _altura, int _x, int _y, bool
 
 int Block::getId() const {
     return id;
+}
+
+int Block::getColorLock() const {
+    return colorLock;
 }
 
 char Block::getColor() const {
@@ -40,6 +55,12 @@ bool* Block::getGeometry() const {
 
 void Block::setColor(char newColor) {
     color = newColor;
+}
+
+void Block::decrementColorLock() {
+    if (colorLock > 0) {
+        colorLock--;
+    }
 }
 
 void Block::setPosition(int newX, int newY) {

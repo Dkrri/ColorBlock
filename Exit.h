@@ -10,6 +10,9 @@ private:
     int stepChange;
 
 public:
+    // Constructor por defecto.
+    Exit();
+
     // Constructor principal de una salida con crecimiento por pasos.
     Exit(int _x, int _y, char _color, char _ori, int _li, int _lf, int _step);
 

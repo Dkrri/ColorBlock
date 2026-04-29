@@ -3,6 +3,7 @@
 class Block {
 private:
     int id;
+    int colorLock;
     char color;
     int ancho;
     int altura;
@@ -11,11 +12,15 @@ private:
     bool* geometry;
 
 public:
+    // Constructor por defecto.
+    Block();
+
     // Constructor base para inicializar un bloque del tablero.
-    Block(int _id, char _color, int _ancho, int _altura, int _x, int _y, bool* _geo);
+    Block(int _id, int _colorLock, char _color, int _ancho, int _altura, int _x, int _y, bool* _geo);
 
     // Getters basicos de informacion del bloque.
     int getId() const;
+    int getColorLock() const;
     char getColor() const;
     int getWidth() const;
     int getHeight() const;
@@ -25,6 +30,9 @@ public:
 
     // Permite actualizar el color del bloque.
     void setColor(char newColor);
+
+    // Permite disminuir el bloqueo de color si sale algun bloque
+    void decrementColorLock();
 
     // Reposiciona el bloque directamente en el tablero.
     void setPosition(int newX, int newY);

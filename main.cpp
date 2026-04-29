@@ -1,40 +1,53 @@
 #include <iostream>
 
-#include "Block.h"
-#include "Board.h"
-#include "Exit.h"
-#include "Gate.h"
+#include "FileParser.h"
+#include "GameState.h"
 
-int main() {
-    // Tablero base para prueba rapida.
-    Board board(6, 6);
+int main(int argc, char* argv[]) {
+    const char* levelPath = "nivel_demo.txt";
+    if (argc > 1) {
+        levelPath = argv[1];
+    }
 
-    // Geometria 2x2 completamente llena.
-    bool geometryA[] = {
-        true, true,
-        true, true
-    };
+    FileParser::ParsedLevel level;
+    if (!FileParser::loadLevel(levelPath, level)) {
+        std::cout << "No se pudo cargar el nivel desde: " << levelPath << '\n';
+        std::cout << "Uso: app.exe [ruta_archivo_nivel]\n";
+        return 1;
+    }
 
-    // Geometria 2x2 en forma de L.
-    bool geometryB[] = {
-        true, false,
-        true, true
-    };
+    std::cout << "=== Nivel cargado ===\n";
+    std::cout << "Archivo: " << levelPath << '\n';
+    std::cout << "Ancho: " << level.width << " Alto: " << level.height << '\n';
+    std::cout << "Bloques: " << level.blockCount << " Step limit: " << level.stepLimit << "\n\n";
 
-    Block blockA(1, 'R', 2, 2, 1, 1, geometryA);
-    Block blockB(2, 'G', 2, 2, 2, 2, geometryB);
+    std::cout << "Tablero inicial:\n";
+    level.board->print();
 
-    std::cout << "Colocar blockA: " << (board.placeBlock(blockA) ? "ok" : "fallo") << '\n';
-    std::cout << "Colocar blockB: " << (board.placeBlock(blockB) ? "ok" : "fallo") << '\n';
+    // Crear estado inicial del juego desde lo parseado.
+    GameState gameState(*level.board, level.blocks, level.blockCount);
 
-    board.print();
+    std::cout << "\nEstado inicial del juego:\n";
+    gameState.print();
 
-    Exit exitObj(5, 2, 'R', 'H', 1, 3, 1);
-    Gate gateObj(0, 0, 'V', 'R', 'G', 2);
+    // Intentar generar movimientos para el bloque 1.
+    std::cout << "\nGenerando movimientos para bloque 1...\n";
+    GameState::Move movements[50];
+    int moveCount = gameState.generateMovementsForBlock(1, movements, 50);
+    std::cout << "Movimientos disponibles: " << moveCount << '\n';
+    for (int i = 0; i < moveCount && i < 5; ++i) {
+        std::cout << "  Movimiento " << i << ": Dir=" << movements[i].direction
+                  << " Distancia=" << movements[i].distance << '\n';
+    }
 
-    std::cout << "Largo de salida en paso 2: " << exitObj.getLengthAtStep(2) << '\n';
-    std::cout << "Color de gate en paso 1: " << gateObj.getColorAtStep(1) << '\n';
-    std::cout << "Color de gate en paso 3: " << gateObj.getColorAtStep(3) << '\n';
+    // Verificar si es estado objetivo.
+    std::cout << "\nEs estado objetivo (todos bloques salieron)? "
+              << (gameState.isGoal() ? "Si" : "No") << '\n';
+
+    // Calcular hash del estado.
+    std::cout << "Hash del estado: " << gameState.hash() << '\n';
+
+    FileParser::freeLevel(level);
 
     return 0;
 }

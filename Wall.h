@@ -8,6 +8,9 @@ private:
     bool gateWall;
 
 public:
+    // Constructor por defecto.
+    Wall();
+
     // Crea una pared en una coordenada, opcionalmente marcada como salida o gate.
     Wall(int _x, int _y, bool _isExit = false, bool _isGate = false);
 
