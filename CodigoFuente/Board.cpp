@@ -3,7 +3,7 @@
 #include <iostream>
 
 int Board::index(int x, int y) const {
-    return (y * width) + x;
+    return (x * width) + y;
 }
 
 Board::Board(int _width, int _height)
@@ -112,7 +112,7 @@ int Board::getHeight() const {
 }
 
 bool Board::isInside(int x, int y) const {
-    return x >= 0 && x < width && y >= 0 && y < height;
+    return x >= 0 && x < height && y >= 0 && y < width;
 }
 
 bool Board::isCellFree(int x, int y) const {
@@ -129,11 +129,11 @@ bool Board::canPlaceBlock(const Block& block) const {
     const int blockHeight = block.getHeight();
     const bool* geometry = block.getGeometry();
 
-    for (int localY = 0; localY < blockHeight; ++localY) {
-        for (int localX = 0; localX < blockWidth; ++localX) {
+    for (int localX = 0; localX < blockHeight; ++localX) {
+        for (int localY = 0; localY < blockWidth; ++localY) {
             const bool isFilled = (geometry == nullptr)
                 ? true
-                : geometry[(localY * blockWidth) + localX];
+                : geometry[(localX * blockWidth) + localY];
 
             if (!isFilled) {
                 continue;
@@ -162,11 +162,11 @@ bool Board::placeBlock(const Block& block) {
     const int blockHeight = block.getHeight();
     const bool* geometry = block.getGeometry();
 
-    for (int localY = 0; localY < blockHeight; ++localY) {
-        for (int localX = 0; localX < blockWidth; ++localX) {
+    for (int localX = 0; localX < blockHeight; ++localX) {
+        for (int localY = 0; localY < blockWidth; ++localY) {
             const bool isFilled = (geometry == nullptr)
                 ? true
-                : geometry[(localY * blockWidth) + localX];
+                : geometry[(localX * blockWidth) + localY];
 
             if (!isFilled) {
                 continue;
@@ -188,11 +188,11 @@ void Board::removeBlock(const Block& block) {
     const int blockHeight = block.getHeight();
     const bool* geometry = block.getGeometry();
 
-    for (int localY = 0; localY < blockHeight; ++localY) {
-        for (int localX = 0; localX < blockWidth; ++localX) {
+    for (int localX = 0; localX < blockHeight; ++localX) {
+        for (int localY = 0; localY < blockWidth; ++localY) {
             const bool isFilled = (geometry == nullptr)
                 ? true
-                : geometry[(localY * blockWidth) + localX];
+                : geometry[(localX * blockWidth) + localY];
 
             if (!isFilled) {
                 continue;
@@ -216,7 +216,14 @@ void Board::clear() {
 
 bool Board::addWall(const Wall& wall) {
     if (wallCount >= maxWalls) {
-        return false;
+        int newMax = maxWalls * 2;
+        Wall* newWalls = new Wall[newMax];
+        for (int i = 0; i < wallCount; ++i) {
+            newWalls[i] = walls[i];
+        }
+        delete[] walls;
+        walls = newWalls;
+        maxWalls = newMax;
     }
     walls[wallCount] = wall;
     ++wallCount;
@@ -225,7 +232,14 @@ bool Board::addWall(const Wall& wall) {
 
 bool Board::addExit(const Exit& exit) {
     if (exitCount >= maxExits) {
-        return false;
+        int newMax = maxExits * 2;
+        Exit* newExits = new Exit[newMax];
+        for (int i = 0; i < exitCount; ++i) {
+            newExits[i] = exits[i];
+        }
+        delete[] exits;
+        exits = newExits;
+        maxExits = newMax;
     }
     exits[exitCount] = exit;
     ++exitCount;
@@ -234,7 +248,14 @@ bool Board::addExit(const Exit& exit) {
 
 bool Board::addGate(const Gate& gate) {
     if (gateCount >= maxGates) {
-        return false;
+        int newMax = maxGates * 2;
+        Gate* newGates = new Gate[newMax];
+        for (int i = 0; i < gateCount; ++i) {
+            newGates[i] = gates[i];
+        }
+        delete[] gates;
+        gates = newGates;
+        maxGates = newMax;
     }
     gates[gateCount] = gate;
     ++gateCount;
@@ -272,8 +293,8 @@ int Board::getGateCount() const {
 }
 
 void Board::print() const {
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    for (int x = 0; x < height; ++x) {
+        for (int y = 0; y < width; ++y) {
             if (isWallAt(x, y)) {
                 std::cout << "# ";
             } else {

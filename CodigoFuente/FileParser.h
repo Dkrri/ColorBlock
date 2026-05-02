@@ -25,6 +25,7 @@ public:
 private:
     static void resetParsedLevel(ParsedLevel& level);
     static void trimLine(char* line);
+    static void trimLineRight(char* line);
     static bool isEmptyOrComment(const char* line);
     static bool parseMetaLine(const char* line, int& width, int& height, int& stepLimit);
     static bool parseBlockLine(

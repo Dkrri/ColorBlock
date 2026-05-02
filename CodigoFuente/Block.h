@@ -36,10 +36,15 @@ public:
 
     // Reposiciona el bloque directamente en el tablero.
     void setPosition(int newX, int newY);
+    void setX(int newX);
+    void setY(int newY);
 
     // Mueve el bloque con un desplazamiento relativo.
     void moveBy(int dx, int dy);
 
     // Verifica si una celda esta dentro del area rectangular ocupada.
     bool occupiesCell(int cellX, int cellY) const;
+
+    // Verifica si dos bloques se intersectan considerando su geometria real.
+    bool collidesWith(const Block& other) const;
 };

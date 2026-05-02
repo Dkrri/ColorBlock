@@ -68,12 +68,40 @@ void Block::setPosition(int newX, int newY) {
     y = newY;
 }
 
+void Block::setX(int newX) {
+    x = newX;
+}
+
+void Block::setY(int newY) {
+    y = newY;
+}
+
 void Block::moveBy(int dx, int dy) {
     x += dx;
     y += dy;
 }
 
 bool Block::occupiesCell(int cellX, int cellY) const {
-    return cellX >= x && cellX < (x + ancho) &&
-           cellY >= y && cellY < (y + altura);
+    if (cellX < x || cellX >= (x + altura) || cellY < y || cellY >= (y + ancho)) {
+        return false;
+    }
+
+    if (geometry == nullptr) {
+        return true;
+    }
+
+    const int localRow = cellX - x;
+    const int localCol = cellY - y;
+    return geometry[(localRow * ancho) + localCol];
+}
+
+bool Block::collidesWith(const Block& other) const {
+    for (int row = x; row < x + altura; ++row) {
+        for (int col = y; col < y + ancho; ++col) {
+            if (occupiesCell(row, col) && other.occupiesCell(row, col)) {
+                return true;
+            }
+        }
+    }
+    return false;
 }

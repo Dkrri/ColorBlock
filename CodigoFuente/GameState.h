@@ -74,6 +74,9 @@ public:
 
 private:
     // Metodos auxiliares fisicos para evaluacion sin STL.
+    int findBlockIndexById(int blockId) const;
     bool isValidPlacement(const Block& block, int ignoreBlockId) const;
-    int checkAdjacentExitOrGate(const Block& block, bool& isExit, int& gateJump) const;
+    bool canExitThroughAny(const Block& block) const;
+    bool canExitThroughExit(const Block& block, const Exit& ex) const;
+    bool tryGateCross(const Block& block, int direction, Block& outBlock) const;
 };

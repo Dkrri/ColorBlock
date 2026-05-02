@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 
 void FileParser::resetParsedLevel(ParsedLevel& level) {
     level.board = nullptr;
@@ -14,6 +15,16 @@ void FileParser::resetParsedLevel(ParsedLevel& level) {
 }
 
 void FileParser::trimLine(char* line) {
+    // Remover BOM UTF-8 si existe al inicio de la linea.
+    if (line[0] == (char)0xEF && line[1] == (char)0xBB && line[2] == (char)0xBF) {
+        int i = 0;
+        while (line[i + 3] != '\0') {
+            line[i] = line[i + 3];
+            ++i;
+        }
+        line[i] = '\0';
+    }
+
     int len = static_cast<int>(std::strlen(line));
     while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r' || line[len - 1] == ' ' || line[len - 1] == '\t')) {
         line[len - 1] = '\0';
@@ -35,6 +46,14 @@ void FileParser::trimLine(char* line) {
     }
 }
 
+void FileParser::trimLineRight(char* line) {
+    int len = static_cast<int>(std::strlen(line));
+    while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+        line[len - 1] = '\0';
+        --len;
+    }
+}
+
 bool FileParser::isEmptyOrComment(const char* line) {
     return line[0] == '\0' || line[0] == '#';
 }
@@ -47,15 +66,15 @@ bool FileParser::isSection(const char* line, const char* sectionName) {
 
 bool FileParser::parseMetaLine(const char* line, int& width, int& height, int& stepLimit) {
     int value = 0;
-    if (std::sscanf(line, "WIDTH=%d", &value) == 1) {
+    if (std::sscanf(line, "WIDTH=%d", &value) == 1 || std::sscanf(line, "WIDTH = %d", &value) == 1) {
         width = value;
         return true;
     }
-    if (std::sscanf(line, "HEIGHT=%d", &value) == 1) {
+    if (std::sscanf(line, "HEIGHT=%d", &value) == 1 || std::sscanf(line, "HEIGHT = %d", &value) == 1) {
         height = value;
         return true;
     }
-    if (std::sscanf(line, "STEP_LIMIT=%d", &value) == 1) {
+    if (std::sscanf(line, "STEP_LIMIT=%d", &value) == 1 || std::sscanf(line, "STEP_LIMIT = %d", &value) == 1) {
         stepLimit = value;
         return true;
     }
@@ -79,6 +98,44 @@ bool FileParser::parseBlockLine(
         mask[0] = '\0';
     }
 
+    // Formato PDF: "1 COLOR=a ..." o "ID=1 COLOR=a ..."
+    const char* idPos = std::strstr(line, "ID=");
+    if ((idPos != nullptr && std::sscanf(idPos, "ID=%d", &id) == 1) ||
+        (idPos == nullptr && std::sscanf(line, "%d", &id) == 1)) {
+        colorLock = 0;
+        char* pos = std::strstr(line, "COLOR=");
+        if (pos && std::sscanf(pos, "COLOR=%c", &color) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "WIDTH=");
+        if (pos && std::sscanf(pos, "WIDTH=%d", &w) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "HEIGHT=");
+        if (pos && std::sscanf(pos, "HEIGHT=%d", &h) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "INIT_X=");
+        if (pos && std::sscanf(pos, "INIT_X=%d", &x) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "INIT_Y=");
+        if (pos && std::sscanf(pos, "INIT_Y=%d", &y) != 1) {
+            return false;
+        }
+
+        const char* geom = std::strstr(line, "GEOMETRY=");
+        if (geom != nullptr && maskSize > 0) {
+            geom += std::strlen("GEOMETRY=");
+            std::snprintf(mask, maskSize, "%s", geom);
+            hasMask = true;
+        }
+
+        // Validar que esten los campos principales.
+        return (color != '\0' && w > 0 && h > 0);
+    }
+
+    // Formato legado CSV: "id,colorLock,color,width,height,x,y,mask"
     if (std::sscanf(line, "%d,%d,%c,%d,%d,%d,%d,%127s", &id, &colorLock, &color, &w, &h, &x, &y, mask) == 8) {
         hasMask = true;
         return true;
@@ -134,6 +191,36 @@ bool FileParser::parseWallLine(const char* line, int& x, int& y, bool& isExit, b
 }
 
 bool FileParser::parseExitLine(const char* line, int& x, int& y, char& color, char& ori, int& li, int& lf, int& step) {
+    // Formato PDF: "COLOR=a X=2 Y=7 ORIENTATION=V LI=2 LF=2 STEP=1"
+    const char* pos = std::strstr(line, "COLOR=");
+    if (pos && std::sscanf(pos, "COLOR=%c", &color) == 1) {
+        pos = std::strstr(line, "X=");
+        if (!pos || std::sscanf(pos, "X=%d", &x) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "Y=");
+        if (!pos || std::sscanf(pos, "Y=%d", &y) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "ORIENTATION=");
+        if (!pos || std::sscanf(pos, "ORIENTATION=%c", &ori) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "LI=");
+        if (!pos || std::sscanf(pos, "LI=%d", &li) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "LF=");
+        if (!pos || std::sscanf(pos, "LF=%d", &lf) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "STEP=");
+        if (!pos || std::sscanf(pos, "STEP=%d", &step) != 1) {
+            return false;
+        }
+        return true;
+    }
+
     if (std::sscanf(line, "%d,%d,%c,%c,%d,%d,%d", &x, &y, &color, &ori, &li, &lf, &step) == 7) {
         return true;
     }
@@ -144,6 +231,36 @@ bool FileParser::parseExitLine(const char* line, int& x, int& y, char& color, ch
 }
 
 bool FileParser::parseGateLine(const char* line, int& x, int& y, char& ori, char& ci, char& cf, int& step) {
+    // Formato PDF: "COLOR=a X=2 Y=7 ORIENTATION=V CI=a CF=c STEP=1"
+    const char* pos = std::strstr(line, "X=");
+    const char* posColor = std::strstr(line, "COLOR=");
+    if (posColor != nullptr) {
+        // Gate usa CI/CF, color actual viene de CI/CF; COLOR= puede no existir en input, asi que se ignora si falta.
+    }
+    if (pos && std::sscanf(pos, "X=%d", &x) == 1) {
+        pos = std::strstr(line, "Y=");
+        if (!pos || std::sscanf(pos, "Y=%d", &y) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "ORIENTATION=");
+        if (!pos || std::sscanf(pos, "ORIENTATION=%c", &ori) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "CI=");
+        if (!pos || std::sscanf(pos, "CI=%c", &ci) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "CF=");
+        if (!pos || std::sscanf(pos, "CF=%c", &cf) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "STEP=");
+        if (!pos || std::sscanf(pos, "STEP=%d", &step) != 1) {
+            return false;
+        }
+        return true;
+    }
+
     if (std::sscanf(line, "%d,%d,%c,%c,%c,%d", &x, &y, &ori, &ci, &cf, &step) == 6) {
         return true;
     }
@@ -158,6 +275,7 @@ bool FileParser::loadLevel(const char* filePath, ParsedLevel& outLevel) {
 
     FILE* file = std::fopen(filePath, "r");
     if (file == nullptr) {
+        std::cout << "ERROR: No se pudo abrir el archivo: " << filePath << '\n';
         return false;
     }
 
@@ -200,6 +318,9 @@ bool FileParser::loadLevel(const char* filePath, ParsedLevel& outLevel) {
     }
 
     if (width <= 0 || height <= 0 || blockCount <= 0) {
+        std::cout << "ERROR: META invalida. WIDTH=" << width
+                  << " HEIGHT=" << height
+                  << " BLOCKS=" << blockCount << '\n';
         std::fclose(file);
         return false;
     }
@@ -223,13 +344,16 @@ bool FileParser::loadLevel(const char* filePath, ParsedLevel& outLevel) {
 
     // Segunda pasada: cargar entidades.
     while (std::fgets(line, sizeof(line), file) != nullptr) {
+        char rawLine[256];
+        std::snprintf(rawLine, sizeof(rawLine), "%s", line);
+
         trimLine(line);
-        if (isEmptyOrComment(line)) {
+        if (line[0] == '[') {
+            std::snprintf(currentSection, sizeof(currentSection), "%s", line);
             continue;
         }
 
-        if (line[0] == '[') {
-            std::snprintf(currentSection, sizeof(currentSection), "%s", line);
+        if (std::strcmp(currentSection, "[WALL]") != 0 && isEmptyOrComment(line)) {
             continue;
         }
 
@@ -250,6 +374,8 @@ bool FileParser::loadLevel(const char* filePath, ParsedLevel& outLevel) {
                 }
 
                 if (hasMask && !applyMaskToGeometry(mask, w, h, geometry)) {
+                    std::cout << "ERROR: GEOMETRY invalida para bloque ID=" << id
+                              << " (" << w << "x" << h << ")" << '\n';
                     delete[] geometry;
                     std::fclose(file);
                     freeLevel(outLevel);
@@ -266,17 +392,21 @@ bool FileParser::loadLevel(const char* filePath, ParsedLevel& outLevel) {
             int y = 0;
             bool isExit = false;
             bool isGate = false;
-            
+            trimLineRight(rawLine);
             // Evaluacion PDF: La secion WALL puede venir como matriz H x W
             // con valores '#' para pared y ' ' para espacio.
             // Si la linea detecta '#' o ' ', iterar la linea sumando a Y=0.., e iterando en X.
             // Para acoplarnos al código base actual pero preparar el soporte a matrices:
-            if (line[0] == '#' || line[0] == ' ') {
-                for (int currentX = 0; line[currentX] != '\0'; ++currentX) {
-                    if (line[currentX] == '#') {
+            if (rawLine[0] == '\0') {
+                continue;
+            }
+
+            if (rawLine[0] == '#' || rawLine[0] == ' ') {
+                for (int currentY = 0; rawLine[currentY] != '\0'; ++currentY) {
+                    if (rawLine[currentY] == '#') {
                         // isExit o isGate se inicializan en falso porque esto
                         // es solo una pared base, las salidas reales se declaran en [EXIT] o [GATE].
-                        Wall wall(currentX, currentWallRowY, false, false);
+                        Wall wall(currentWallRowY, currentY, false, false);
                         outLevel.board->addWall(wall);
                     }
                 }
