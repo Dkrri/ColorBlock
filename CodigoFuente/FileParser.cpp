@@ -103,7 +103,7 @@ bool FileParser::parseBlockLine(
     if ((idPos != nullptr && std::sscanf(idPos, "ID=%d", &id) == 1) ||
         (idPos == nullptr && std::sscanf(line, "%d", &id) == 1)) {
         colorLock = 0;
-        char* pos = std::strstr(line, "COLOR=");
+        const char* pos = std::strstr(line, "COLOR=");
         if (pos && std::sscanf(pos, "COLOR=%c", &color) != 1) {
             return false;
         }

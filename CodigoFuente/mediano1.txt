@@ -1,0 +1,51 @@
+[META]
+NAME = mediano1
+WIDTH = 27
+HEIGHT = 16
+STEP_LIMIT = 5000
+
+[BLOCK]
+1 COLOR=a WIDTH=4 HEIGHT=4 INIT_X=1 INIT_Y=5 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+2 COLOR=b WIDTH=4 HEIGHT=4 INIT_X=7 INIT_Y=5 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+3 COLOR=c WIDTH=2 HEIGHT=6 INIT_X=3 INIT_Y=3 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+4 COLOR=d WIDTH=2 HEIGHT=6 INIT_X=3 INIT_Y=1 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+5 COLOR=e WIDTH=6 HEIGHT=2 INIT_X=5 INIT_Y=7 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+6 COLOR=f WIDTH=4 HEIGHT=4 INIT_X=7 INIT_Y=14 GEOMETRY=1 1 1 1 1 1 1 1 1 1 0 0 1 1 0 0
+7 COLOR=g WIDTH=6 HEIGHT=2 INIT_X=11 INIT_Y=14 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+8 COLOR=h WIDTH=6 HEIGHT=2 INIT_X=11 INIT_Y=20 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+9 COLOR=i WIDTH=4 HEIGHT=4 INIT_X=3 INIT_Y=16 GEOMETRY=1 1 0 0 1 1 0 0 1 1 1 1 1 1 1 1
+10 COLOR=j WIDTH=6 HEIGHT=2 INIT_X=7 INIT_Y=18 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+11 COLOR=b WIDTH=6 HEIGHT=2 INIT_X=9 INIT_Y=16 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+
+[WALL]
+##############
+#            #             
+#            ##############
+#            #            #
+#            #            #
+#            #            #
+#            #            #
+#            #            #
+#            #            #
+#            #            #
+#            #            #
+##############            #
+             #            #
+             #            #
+             #            #
+             ##############
+
+[EXIT]
+COLOR=c X=0 Y=1 ORIENTATION=H LI=4 LF=4 STEP=0
+COLOR=e X=3 Y=0 ORIENTATION=V LI=6 LF=6 STEP=0
+COLOR=d X=11 Y=1 ORIENTATION=H LI=4 LF=4 STEP=0
+COLOR=b X=1 Y=13 ORIENTATION=V LI=4 LF=4 STEP=0
+COLOR=i X=2 Y=14 ORIENTATION=H LI=4 LF=4 STEP=0
+COLOR=h X=15 Y=14 ORIENTATION=H LI=6 LF=6 STEP=0
+COLOR=g X=15 Y=20 ORIENTATION=H LI=6 LF=6 STEP=0
+COLOR=f X=2 Y=22 ORIENTATION=H LI=4 LF=4 STEP=0
+COLOR=j X=7 Y=26 ORIENTATION=V LI=4 LF=4 STEP=0
+COLOR=a X=11 Y=26 ORIENTATION=V LI=4 LF=4 STEP=0
+
+[GATE]
+X=7 Y=13 ORIENTATION=V LI=4 CI=a CF=d STEP=1

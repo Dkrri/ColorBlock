@@ -2,17 +2,16 @@
 
 #include "AStarNode.h"
 #include "BestCostTable.h"
-#include "Board.h"
 #include "MinHeap.h"
 #include "NodeArena.h"
 
 #include <limits>
 
-static int absInt(int value) {
+int AStarSolver::absInt(int value) {
     return (value < 0) ? -value : value;
 }
 
-static int gcdInt(int a, int b) {
+int AStarSolver::gcdInt(int a, int b) {
     if (a < 0) a = -a;
     if (b < 0) b = -b;
     while (b != 0) {
@@ -23,14 +22,14 @@ static int gcdInt(int a, int b) {
     return (a == 0) ? 1 : a;
 }
 
-static int lcmCapped(int a, int b, int cap) {
+int AStarSolver::lcmCapped(int a, int b, int cap) {
     int g = gcdInt(a, b);
     long long part = (long long)(a / g) * (long long)b;
     if (part > cap) return cap;
     return (int)part;
 }
 
-static int computeTemporalPeriod(const Board& board) {
+int AStarSolver::computeTemporalPeriod(const Board& board) {
     // Cap keeps memory bounded even for large theoretical cycles.
     const int CAP = 4096;
     int period = 1;
@@ -63,14 +62,14 @@ static int computeTemporalPeriod(const Board& board) {
     return period;
 }
 
-static unsigned long makeTemporalKey(const GameState& state, int temporalPeriod) {
+unsigned long AStarSolver::makeTemporalKey(const GameState& state, int temporalPeriod) {
     unsigned long base = state.hash();
     unsigned long step = (unsigned long)(state.getStep() % temporalPeriod);
     // mix state hash with step so time-dependent exits/gates are distinguished
     return (base * 1315423911ul) ^ (step + 0x9e3779b9ul + (base << 6) + (base >> 2));
 }
 
-static int cellDistanceLowerBound(const GameState& state, const Block& block) {
+int AStarSolver::cellDistanceLowerBound(const GameState& state, const Block& block) {
     const Board& board = state.getBoard();
     int best = std::numeric_limits<int>::max();
 
@@ -103,7 +102,7 @@ static int cellDistanceLowerBound(const GameState& state, const Block& block) {
     return (best == std::numeric_limits<int>::max()) ? 0 : best;
 }
 
-static int alignmentDistanceLowerBound(const GameState& state, const Block& block) {
+int AStarSolver::alignmentDistanceLowerBound(const GameState& state, const Block& block) {
     const Board& board = state.getBoard();
     int best = std::numeric_limits<int>::max();
 
@@ -150,13 +149,13 @@ static int alignmentDistanceLowerBound(const GameState& state, const Block& bloc
     return (best == std::numeric_limits<int>::max()) ? 0 : best;
 }
 
-static int blockHeuristic(const GameState& state, const Block& block) {
+int AStarSolver::blockHeuristic(const GameState& state, const Block& block) {
     int cellLB = cellDistanceLowerBound(state, block);
     int alignLB = alignmentDistanceLowerBound(state, block);
     return (cellLB > alignLB) ? cellLB : alignLB;
 }
 
-static int heuristic(const GameState& state) {
+int AStarSolver::heuristic(const GameState& state) {
     int total = 0;
 
     for (int i = 0; i < state.getBlockCount(); ++i) {

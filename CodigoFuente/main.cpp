@@ -30,43 +30,82 @@ private:
     }
 
     static void showMenu() {
-        int option = -1;
-
-        while (option != 0) {
+        while (true) {
             std::cout << "\nMenu principal\n";
-            std::cout << "1. Resolver archivo por ruta\n";
-            std::cout << "2. Resolver ejemplo simple1.txt\n";
-            std::cout << "3. Resolver ejemplo facil1_corregido.txt\n";
-            std::cout << "4. Resolver todos los ejemplos conocidos\n";
-            std::cout << "0. Salir\n";
+            std::cout << "1. Evaluar tablero\n";
+            std::cout << "2. Salir\n";
             std::cout << "Seleccione una opcion: ";
 
-            if (!(std::cin >> option)) {
+            char input[32];
+            std::cin.getline(input, sizeof(input));
+            if (!std::cin.good()) {
                 std::cin.clear();
                 discardLine();
                 std::cout << "Entrada invalida.\n";
                 continue;
             }
-            discardLine();
 
-            if (option == 1) {
+            if (input[0] == '1' && input[1] == '\0') {
+                showEvaluateBoardMenu();
+            } else if (input[0] == '2' && input[1] == '\0') {
+                std::cout << "Saliendo.\n";
+                break;
+            } else {
+                std::cout << "Opcion no reconocida.\n";
+            }
+        }
+    }
+
+    static void showEvaluateBoardMenu() {
+        while (true) {
+            std::cout << "\nEvaluar tablero\n";
+            std::cout << "0. Ruta de tablero\n";
+            std::cout << "1. facil1_corregido\n";
+            std::cout << "2. facil2_corregido\n";
+            std::cout << "3. facil3\n";
+            std::cout << "4. facil4\n";
+            std::cout << "5. facil5\n";
+            std::cout << "6. mediano1\n";
+            std::cout << "7. dificil1\n";
+            std::cout << "x. Salir\n";
+            std::cout << "Seleccione una opcion: ";
+
+            char input[64];
+            std::cin.getline(input, sizeof(input));
+            if (!std::cin.good()) {
+                std::cin.clear();
+                discardLine();
+                std::cout << "Entrada invalida.\n";
+                continue;
+            }
+
+            if (input[0] == 'x' && input[1] == '\0') {
+                break;
+            }
+
+            if (input[0] == '0' && input[1] == '\0') {
                 char path[512];
-                std::cout << "Ruta del archivo: ";
+                std::cout << "Ruta de tablero: ";
                 std::cin.getline(path, sizeof(path));
                 if (std::strlen(path) == 0) {
                     std::cout << "Ruta vacia.\n";
                     continue;
                 }
                 solveFile(path);
-            } else if (option == 2) {
-                solveFile("simple1.txt");
-            } else if (option == 3) {
+            } else if (input[0] == '1' && input[1] == '\0') {
                 solveFile("facil1_corregido.txt");
-            } else if (option == 4) {
-                solveFile("simple1.txt");
-                solveFile("facil1_corregido.txt");
-            } else if (option == 0) {
-                std::cout << "Saliendo.\n";
+            } else if (input[0] == '2' && input[1] == '\0') {
+                solveFile("facil2_corregido.txt");
+            } else if (input[0] == '3' && input[1] == '\0') {
+                solveFile("facil3.txt");
+            } else if (input[0] == '4' && input[1] == '\0') {
+                solveFile("facil4.txt");
+            } else if (input[0] == '5' && input[1] == '\0') {
+                solveFile("facil5.txt");
+            } else if (input[0] == '6' && input[1] == '\0') {
+                solveFile("mediano1.txt");
+            } else if (input[0] == '7' && input[1] == '\0') {
+                solveFile("dificil1.txt");
             } else {
                 std::cout << "Opcion no reconocida.\n";
             }
@@ -97,8 +136,6 @@ private:
         const clock_t endTime = clock();
         const double elapsedMs = 1000.0 * (endTime - startTime) / CLOCKS_PER_SEC;
 
-        printResult(result, elapsedMs);
-
         if (result.found) {
             GameState::Move* solutionMoves = copyMovesToArray(result);
             std::cout << "\nMovimientos guardados en arreglo: "
@@ -107,36 +144,58 @@ private:
             delete[] solutionMoves;
         }
 
+        // Report summary after the final board step has been shown.
+        printResult(result, elapsedMs);
+
         AStarSolver::freeResult(result);
         FileParser::freeLevel(level);
     }
 
-    static void printResult(const AStarSolver::Result& result, double elapsedMs) {
-        std::cout << "\n================ RESULTADOS ================\n";
-        std::cout << "Tiempo de ejecucion: " << elapsedMs << " ms\n";
-        std::cout << "Nodos expandidos: " << result.expanded << '\n';
-        std::cout << "Nodos generados: " << result.generated << '\n';
+    static void runManualSequence() {
+        char path[512];
+        char sequence[2048];
 
-        if (!result.found) {
-            std::cout << "Juego sin solucion.\n";
-            std::cout << "============================================\n";
+        std::cout << "Ruta del archivo: ";
+        std::cin.getline(path, sizeof(path));
+        if (std::strlen(path) == 0) {
+            std::cout << "Ruta vacia.\n";
             return;
         }
 
+        std::cout << "Secuencia (ej: R1,1; D2,3; L1,2): ";
+        std::cin.getline(sequence, sizeof(sequence));
+        if (std::strlen(sequence) == 0) {
+            std::cout << "Secuencia vacia.\n";
+            return;
+        }
+
+        GameState::Move moves[256];
+        int moveCount = parseMoveSequence(sequence, moves, 256);
+        if (moveCount <= 0) {
+            std::cout << "No se pudo interpretar la secuencia.\n";
+            return;
+        }
+
+        std::cout << "Movimientos guardados en arreglo: " << moveCount << '\n';
+        replayManualMoves(path, moves, moveCount);
+    }
+
+    static void printResult(const AStarSolver::Result& result, double elapsedMs) {
+        if (!result.found) {
+            std::cout << "no se encontro solucion\n";
+            return;
+        }
+
+        const int elapsedMsInt = static_cast<int>(elapsedMs + 0.5);
+        std::cout << "Tiempo resolucion: " << elapsedMsInt << "[mseg]\n";
         std::cout << "Solucion encontrada.\n";
-        std::cout << "Cantidad de movimientos: " << result.moveCount << '\n';
         std::cout << "Pasos:\n";
 
         for (int i = 0; i < result.moveCount; ++i) {
             const GameState::Move move = result.moves[i];
             std::cout << directionToChar(move.direction)
-                      << move.blockId << "," << move.distance;
-            if (i < result.moveCount - 1) {
-                std::cout << "; ";
-            }
+                      << move.blockId << "," << move.distance << '\n';
         }
-
-        std::cout << "\n============================================\n";
     }
 
     static char directionToChar(int direction) {
@@ -157,6 +216,96 @@ private:
             moves[i] = result.moves[i];
         }
         return moves;
+    }
+
+    static int parseMoveSequence(const char* text,
+                                 GameState::Move* moves,
+                                 int maxMoves) {
+        int count = 0;
+        int pos = 0;
+
+        while (text[pos] != '\0' && count < maxMoves) {
+            skipSeparators(text, pos);
+            if (text[pos] == '\0') {
+                break;
+            }
+
+            GameState::Move move;
+            if (!parseOneMove(text, pos, move)) {
+                return 0;
+            }
+            moves[count++] = move;
+            skipSeparators(text, pos);
+        }
+
+        return count;
+    }
+
+    static bool parseOneMove(const char* text, int& pos, GameState::Move& move) {
+        const char direction = text[pos++];
+        move.direction = charToDirection(direction);
+        if (move.direction < 0) {
+            return false;
+        }
+
+        if (!parsePositiveInt(text, pos, move.blockId)) {
+            return false;
+        }
+
+        if (text[pos] != ',') {
+            return false;
+        }
+        ++pos;
+
+        if (!parsePositiveInt(text, pos, move.distance)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    static bool parsePositiveInt(const char* text, int& pos, int& value) {
+        if (text[pos] < '0' || text[pos] > '9') {
+            return false;
+        }
+
+        value = 0;
+        while (text[pos] >= '0' && text[pos] <= '9') {
+            value = (value * 10) + (text[pos] - '0');
+            ++pos;
+        }
+
+        return value > 0;
+    }
+
+    static void skipSeparators(const char* text, int& pos) {
+        while (text[pos] == ' ' || text[pos] == '\t' ||
+               text[pos] == ';' || text[pos] == '\n' ||
+               text[pos] == '\r') {
+            ++pos;
+        }
+    }
+
+    static int charToDirection(char direction) {
+        if (direction == 'U' || direction == 'u') return GameState::DIR_UP;
+        if (direction == 'D' || direction == 'd') return GameState::DIR_DOWN;
+        if (direction == 'L' || direction == 'l') return GameState::DIR_LEFT;
+        if (direction == 'R' || direction == 'r') return GameState::DIR_RIGHT;
+        return -1;
+    }
+
+    static void replayManualMoves(const char* filename,
+                                  const GameState::Move* moves,
+                                  int moveCount) {
+        FileParser::ParsedLevel level;
+        if (!FileParser::loadLevel(filename, level)) {
+            std::cout << "ERROR: No se pudo cargar el archivo.\n";
+            return;
+        }
+
+        GameState initialState(*level.board, level.blocks, level.blockCount);
+        replaySolution(initialState, moves, moveCount);
+        FileParser::freeLevel(level);
     }
 
     static void replaySolution(const GameState& initialState,
@@ -200,21 +349,15 @@ private:
         const Board& board = state.getBoard();
 
         std::cout << "\nPaso de tiempo: " << state.getStep() << '\n';
-        std::cout << "   ";
-        for (int col = 0; col < board.getWidth(); ++col) {
-            std::cout << (col % 10);
-        }
-        std::cout << '\n';
 
         for (int row = 0; row < board.getHeight(); ++row) {
-            std::cout << (row % 10) << "  ";
             for (int col = 0; col < board.getWidth(); ++col) {
                 std::cout << cellCharAt(state, row, col);
             }
             std::cout << '\n';
         }
 
-        std::cout << "Leyenda: # pared, MAYUSCULA bloque, minuscula salida/compuerta, . vacio\n";
+        std::cout << "Leyenda: # pared, minuscula bloque, MAYUSCULA salida, . vacio\n";
     }
 
     static char cellCharAt(const GameState& state, int row, int col) {
@@ -237,7 +380,7 @@ private:
             return '#';
         }
 
-        return '.';
+        return ' ';
     }
 
     static char blockCharAt(const GameState& state, int row, int col) {
@@ -247,7 +390,7 @@ private:
                 if (block.getColorLock() > 0) {
                     return '?';
                 }
-                return toUpper(block.getColor());
+                return toLower(block.getColor());
             }
         }
         return '\0';
@@ -274,17 +417,24 @@ private:
                 if (col == exitObj.getY() &&
                     row >= exitObj.getX() &&
                     row < exitObj.getX() + length) {
-                    return exitObj.getColor();
+                    return toUpper(exitObj.getColor());
                 }
             } else if (exitObj.getOrientation() == 'H') {
                 if (row == exitObj.getX() &&
                     col >= exitObj.getY() &&
                     col < exitObj.getY() + length) {
-                    return exitObj.getColor();
+                    return toUpper(exitObj.getColor());
                 }
             }
         }
         return '\0';
+    }
+
+    static char toLower(char value) {
+        if (value >= 'A' && value <= 'Z') {
+            return static_cast<char>(value - 'A' + 'a');
+        }
+        return value;
     }
 
     static char toUpper(char value) {

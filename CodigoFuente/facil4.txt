@@ -1,0 +1,30 @@
+[META]
+NAME = facil4
+WIDTH = 12
+HEIGHT = 12
+STEP_LIMIT = 50
+
+[BLOCK]
+1 COLOR=a WIDTH=2 HEIGHT=6 INIT_X=3 INIT_Y=3 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+2 COLOR=b WIDTH=2 HEIGHT=6 INIT_X=3 INIT_Y=5 GEOMETRY=1 1 1 1 1 1 1 1 1 1 1 1
+
+[WALL]
+############
+#          #
+#          #
+#          #
+#          #
+#          #
+#          #
+#          #
+#          #
+#          #
+#          #
+############
+
+[EXIT]
+COLOR=a X=0 Y=5 ORIENTATION=H LI=6 LF=1 STEP=1
+COLOR=b X=11 Y=1 ORIENTATION=H LI=6 LF=1 STEP=1
+
+[GATE]
+
