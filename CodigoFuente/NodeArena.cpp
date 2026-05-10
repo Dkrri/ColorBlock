@@ -39,7 +39,11 @@ AStarNode* NodeArena::create(const GameState& state,
     node->moveFromParent = move;
     node->g = g;
     node->h = h;
-    node->f = g + h;
+    
+    // Para A* normal (óptimo), usar WEIGHT = 1
+    // Para búsqueda más rápida (subóptima), usar WEIGHT = 2
+    static const int WEIGHT = 2;
+    node->f = g + WEIGHT * h;
 
     nodes[count++] = node;
     return node;

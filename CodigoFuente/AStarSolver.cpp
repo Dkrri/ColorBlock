@@ -6,6 +6,11 @@
 #include "NodeArena.h"
 
 #include <limits>
+#include <iostream>
+
+// ─────────────────────────────────────────────────────────────────
+// Helpers numéricos
+// ─────────────────────────────────────────────────────────────────
 
 int AStarSolver::absInt(int value) {
     return (value < 0) ? -value : value;
@@ -30,14 +35,13 @@ int AStarSolver::lcmCapped(int a, int b, int cap) {
 }
 
 int AStarSolver::computeTemporalPeriod(const Board& board) {
-    // Cap keeps memory bounded even for large theoretical cycles.
     const int CAP = 4096;
     int period = 1;
 
     for (int i = 0; i < board.getExitCount(); ++i) {
         const Exit& ex = board.getExits()[i];
-        int li = ex.getInitialLength();
-        int lf = ex.getFinalLength();
+        int li   = ex.getInitialLength();
+        int lf   = ex.getFinalLength();
         int step = ex.getStepChange();
         int diff = absInt(li - lf);
         if (step > 0 && diff > 0) {
@@ -48,9 +52,9 @@ int AStarSolver::computeTemporalPeriod(const Board& board) {
 
     for (int i = 0; i < board.getGateCount(); ++i) {
         const Gate& g = board.getGates()[i];
-        int step = g.getStepChange();
-        char ci = g.getInitialColor();
-        char cf = g.getFinalColor();
+        int step  = g.getStepChange();
+        char ci   = g.getInitialColor();
+        char cf   = g.getFinalColor();
         int range = (cf >= ci) ? (cf - ci + 1) : 1;
         if (step > 0 && range > 1) {
             int p = step * range;
@@ -65,10 +69,19 @@ int AStarSolver::computeTemporalPeriod(const Board& board) {
 unsigned long AStarSolver::makeTemporalKey(const GameState& state, int temporalPeriod) {
     unsigned long base = state.hash();
     unsigned long step = (unsigned long)(state.getStep() % temporalPeriod);
-    // mix state hash with step so time-dependent exits/gates are distinguished
     return (base * 1315423911ul) ^ (step + 0x9e3779b9ul + (base << 6) + (base >> 2));
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Componentes de heurística
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * cellDistanceLowerBound
+ * Distancia Manhattan mínima entre cualquier celda del bloque y cualquier
+ * celda de cualquier salida compatible con su color (largo actual).
+ * Es admisible: nunca sobreestima.
+ */
 int AStarSolver::cellDistanceLowerBound(const GameState& state, const Block& block) {
     const Board& board = state.getBoard();
     int best = std::numeric_limits<int>::max();
@@ -102,6 +115,16 @@ int AStarSolver::cellDistanceLowerBound(const GameState& state, const Block& blo
     return (best == std::numeric_limits<int>::max()) ? 0 : best;
 }
 
+/**
+ * alignmentDistanceLowerBound
+ * Pasos mínimos para posicionar el bloque justo frente a alguna salida
+ * (condición necesaria para poder salir).
+ *
+ * MEJORA respecto al original: usa el largo MÁXIMO posible de la salida
+ * (max(LI, LF)) en lugar del largo actual. Esto es admisible porque
+ * representa la condición más favorable que el bloque podría aprovechar;
+ * la cota de espera (exitTimingLowerBound) cubre el tiempo adicional.
+ */
 int AStarSolver::alignmentDistanceLowerBound(const GameState& state, const Block& block) {
     const Board& board = state.getBoard();
     int best = std::numeric_limits<int>::max();
@@ -110,37 +133,51 @@ int AStarSolver::alignmentDistanceLowerBound(const GameState& state, const Block
         const Exit& ex = board.getExits()[e];
         if (ex.getColor() != block.getColor()) continue;
 
-        int len = ex.getLengthAtStep(state.getStep());
-        if (len <= 0) continue;
+        // Largo máximo alcanzable por esta salida (puede ser LI o LF)
+        int li     = ex.getInitialLength();
+        int lf     = ex.getFinalLength();
+        int maxLen = (li > lf) ? li : lf;
+        if (maxLen <= 0) continue;
 
         if (ex.getOrientation() == 'H') {
-            if (block.getWidth() > len) continue;
+            // El bloque necesita caber a lo ancho
+            if (block.getWidth() > maxLen) continue;
 
-            int targetXUp = ex.getX() - block.getHeight();
+            // dx: distancia vertical para quedar inmediatamente arriba o abajo
+            int targetXUp   = ex.getX() - block.getHeight();
             int targetXDown = ex.getX() + 1;
-            int dxUp = absInt(block.getX() - targetXUp);
+            int dxUp   = absInt(block.getX() - targetXUp);
             int dxDown = absInt(block.getX() - targetXDown);
             int dx = (dxUp < dxDown) ? dxUp : dxDown;
+
+            // dy: distancia horizontal para que el bloque quede dentro del rango de la salida
             int minY = ex.getY();
-            int maxY = ex.getY() + len - block.getWidth();
+            int maxY = ex.getY() + maxLen - block.getWidth();
             int dy = 0;
-            if (block.getY() < minY) dy = minY - block.getY();
+            if (block.getY() < minY)      dy = minY - block.getY();
             else if (block.getY() > maxY) dy = block.getY() - maxY;
+
             int d = dx + dy;
             if (d < best) best = d;
-        } else {
-            if (block.getHeight() > len) continue;
 
-            int targetYLeft = ex.getY() - block.getWidth();
+        } else { // 'V'
+            // El bloque necesita caber a lo alto
+            if (block.getHeight() > maxLen) continue;
+
+            // dy: distancia horizontal para quedar inmediatamente a izquierda o derecha
+            int targetYLeft  = ex.getY() - block.getWidth();
             int targetYRight = ex.getY() + 1;
-            int dyLeft = absInt(block.getY() - targetYLeft);
+            int dyLeft  = absInt(block.getY() - targetYLeft);
             int dyRight = absInt(block.getY() - targetYRight);
             int dy = (dyLeft < dyRight) ? dyLeft : dyRight;
+
+            // dx: distancia vertical para que el bloque quede dentro del rango de la salida
             int minX = ex.getX();
-            int maxX = ex.getX() + len - block.getHeight();
+            int maxX = ex.getX() + maxLen - block.getHeight();
             int dx = 0;
-            if (block.getX() < minX) dx = minX - block.getX();
+            if (block.getX() < minX)      dx = minX - block.getX();
             else if (block.getX() > maxX) dx = block.getX() - maxX;
+
             int d = dx + dy;
             if (d < best) best = d;
         }
@@ -149,36 +186,231 @@ int AStarSolver::alignmentDistanceLowerBound(const GameState& state, const Block
     return (best == std::numeric_limits<int>::max()) ? 0 : best;
 }
 
-int AStarSolver::blockHeuristic(const GameState& state, const Block& block) {
-    int cellLB = cellDistanceLowerBound(state, block);
-    int alignLB = alignmentDistanceLowerBound(state, block);
-    return (cellLB > alignLB) ? cellLB : alignLB;
+/**
+ * exitTimingLowerBound  (NUEVA)
+ * Si ninguna salida compatible es actualmente suficientemente grande para
+ * este bloque, devuelve la cantidad mínima de pasos que hay que esperar
+ * hasta que alguna salida alcance el tamaño necesario.
+ *
+ * Es admisible: el bloque no puede salir antes de que la salida exista.
+ */
+int AStarSolver::exitTimingLowerBound(const GameState& state, const Block& block) {
+    const Board& board  = state.getBoard();
+    int best = std::numeric_limits<int>::max();
+
+    for (int e = 0; e < board.getExitCount(); ++e) {
+        const Exit& ex = board.getExits()[e];
+        if (ex.getColor() != block.getColor()) continue;
+
+        // Tamaño necesario según orientación
+        int needed = (ex.getOrientation() == 'H') ? block.getWidth() : block.getHeight();
+
+        // Largo máximo que puede alcanzar esta salida
+        int li     = ex.getInitialLength();
+        int lf     = ex.getFinalLength();
+        int maxLen = (li > lf) ? li : lf;
+        if (needed > maxLen) continue; // esta salida nunca podrá alojar al bloque
+
+        // Si ya es suficientemente grande, no hay espera
+        if (ex.getLengthAtStep(state.getStep()) >= needed) {
+            return 0;
+        }
+
+        // Buscar el primer paso futuro en que la salida alcance el tamaño necesario
+        int stepChange = ex.getStepChange();
+        if (stepChange <= 0) continue; // salida estática que no crece
+
+        // Búsqueda acotada (el puzzle tiene STEP_LIMIT, basta con 2000 pasos)
+        for (int wait = 1; wait <= 2000; ++wait) {
+            if (ex.getLengthAtStep(state.getStep() + wait) >= needed) {
+                if (wait < best) best = wait;
+                break;
+            }
+        }
+    }
+
+    return (best == std::numeric_limits<int>::max()) ? 0 : best;
 }
 
+/**
+ * pathBlockersLowerBound  (NUEVA)
+ * Cuenta cuántos bloques no salidos se encuentran en el pasillo directo
+ * entre el bloque actual y su mejor salida compatible. Cada bloqueador
+ * necesita al menos 1 movimiento para despejarse.
+ *
+ * Admisibilidad: es una cota inferior en la mayoría de los casos (cada
+ * bloqueador necesita moverse, y ese movimiento no siempre coincide con
+ * el movimiento óptimo del bloqueador hacia su propia salida). En casos
+ * muy específicos puede ser ligeramente inadmisible, pero en la práctica
+ * es esencial para resolver puzzles con muchos bloques donde la heurística
+ * sin bloqueos es demasiado débil.
+ */
+int AStarSolver::pathBlockersLowerBound(const GameState& state, const Block& block) {
+    const Board& board = state.getBoard();
+    int minBlockers = std::numeric_limits<int>::max();
+
+    for (int e = 0; e < board.getExitCount(); ++e) {
+        const Exit& ex = board.getExits()[e];
+        if (ex.getColor() != block.getColor()) continue;
+
+        int li     = ex.getInitialLength();
+        int lf     = ex.getFinalLength();
+        int maxLen = (li > lf) ? li : lf;
+        if (maxLen <= 0) continue;
+
+        int needed = (ex.getOrientation() == 'H') ? block.getWidth() : block.getHeight();
+        if (needed > maxLen) continue;
+
+        int blockers = 0;
+
+        if (ex.getOrientation() == 'V') {
+            // El bloque se mueve horizontalmente (hacia la columna de la salida vertical)
+            int exitCol    = ex.getY();
+            int blkRowMin  = block.getX();
+            int blkRowMax  = block.getX() + block.getHeight() - 1;
+            int blkColLeft = block.getY();
+            int blkColRight= block.getY() + block.getWidth() - 1;
+
+            int pathColMin, pathColMax;
+            if (exitCol > blkColRight) {
+                pathColMin = blkColRight + 1;
+                pathColMax = exitCol - 1;
+            } else if (exitCol < blkColLeft) {
+                pathColMin = exitCol + 1;
+                pathColMax = blkColLeft - 1;
+            } else {
+                // Ya está en la columna de la salida
+                if (minBlockers > 0) minBlockers = 0;
+                continue;
+            }
+
+            if (pathColMin > pathColMax) {
+                // Adyacente a la salida
+                if (minBlockers > 0) minBlockers = 0;
+                continue;
+            }
+
+            for (int i = 0; i < state.getBlockCount(); ++i) {
+                const Block& other = state.getBlock(i);
+                if (other.getId() == block.getId()) continue;
+                if (state.hasBlockExited(other.getId())) continue;
+
+                int oRowMin = other.getX();
+                int oRowMax = other.getX() + other.getHeight() - 1;
+                int oColMin = other.getY();
+                int oColMax = other.getY() + other.getWidth() - 1;
+
+                // ¿El otro bloque intersecta el pasillo (misma franja de filas + en el camino)?
+                if (oRowMax >= blkRowMin && oRowMin <= blkRowMax &&
+                    oColMax >= pathColMin && oColMin <= pathColMax) {
+                    ++blockers;
+                }
+            }
+
+        } else { // 'H' exit
+            // El bloque se mueve verticalmente (hacia la fila de la salida horizontal)
+            int exitRow     = ex.getX();
+            int blkRowTop   = block.getX();
+            int blkRowBottom= block.getX() + block.getHeight() - 1;
+            int blkColLeft  = block.getY();
+            int blkColRight = block.getY() + block.getWidth() - 1;
+
+            int pathRowMin, pathRowMax;
+            if (exitRow > blkRowBottom) {
+                pathRowMin = blkRowBottom + 1;
+                pathRowMax = exitRow - 1;
+            } else if (exitRow < blkRowTop) {
+                pathRowMin = exitRow + 1;
+                pathRowMax = blkRowTop - 1;
+            } else {
+                // Ya está en la fila de la salida
+                if (minBlockers > 0) minBlockers = 0;
+                continue;
+            }
+
+            if (pathRowMin > pathRowMax) {
+                if (minBlockers > 0) minBlockers = 0;
+                continue;
+            }
+
+            for (int i = 0; i < state.getBlockCount(); ++i) {
+                const Block& other = state.getBlock(i);
+                if (other.getId() == block.getId()) continue;
+                if (state.hasBlockExited(other.getId())) continue;
+
+                int oRowMin = other.getX();
+                int oRowMax = other.getX() + other.getHeight() - 1;
+                int oColMin = other.getY();
+                int oColMax = other.getY() + other.getWidth() - 1;
+
+                // ¿El otro bloque intersecta el pasillo (misma franja de columnas + en el camino)?
+                if (oRowMax >= pathRowMin && oRowMin <= pathRowMax &&
+                    oColMax >= blkColLeft && oColMin <= blkColRight) {
+                    ++blockers;
+                }
+            }
+        }
+
+        if (blockers < minBlockers) minBlockers = blockers;
+    }
+
+    return (minBlockers == std::numeric_limits<int>::max()) ? 0 : minBlockers;
+}
+
+/**
+ * blockHeuristic — mantenida por compatibilidad (no usada en la ruta principal).
+ */
+int AStarSolver::blockHeuristic(const GameState& state, const Block& block) {
+    return cellDistanceLowerBound(state, block);
+}
+
+/**
+ * heuristic
+ * Suma sobre todos los bloques no salidos de:
+ *   max(cellDist, alignDist, exitTiming)  +  pathBlockers
+ *
+ * • Las tres primeras componentes son cota inferior admisible.
+ * • pathBlockers añade un término de bloqueo que hace la heurística mucho
+ *   más informada, a costa de una posible inadmisibilidad menor en casos
+ *   extremos. Para estos puzzles complejos el trade-off es necesario.
+ */
 int AStarSolver::heuristic(const GameState& state) {
     int total = 0;
-
     for (int i = 0; i < state.getBlockCount(); ++i) {
         const Block& block = state.getBlock(i);
         if (state.hasBlockExited(block.getId())) continue;
 
-        total += blockHeuristic(state, block);
-    }
+        int cellDist  = cellDistanceLowerBound(state, block);
+        int alignDist = alignmentDistanceLowerBound(state, block);
+        int timing    = exitTimingLowerBound(state, block);
+        int blockers  = pathBlockersLowerBound(state, block);
 
+        // Base: máximo de las tres cotas admisibles independientes
+        int base = cellDist;
+        if (alignDist > base) base = alignDist;
+        if (timing    > base) base = timing;
+
+        // Cada bloqueador en el camino requiere al menos 1 movimiento extra
+        total += base + blockers;
+    }
     return total;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Solver principal
+// ─────────────────────────────────────────────────────────────────
+
 AStarSolver::Result AStarSolver::solve(const GameState& start, int maxIterations, int stepLimit) {
     Result result;
-    result.found = false;
+    result.found     = false;
     result.moveCount = 0;
-    result.moves = nullptr;
-    result.expanded = 0;
+    result.moves     = nullptr;
+    result.expanded  = 0;
     result.generated = 0;
 
-    MinHeap open;
+    MinHeap       open;
     BestCostTable bestCosts;
-    NodeArena arena;
+    NodeArena     arena;
     int temporalPeriod = computeTemporalPeriod(start.getBoard());
 
     GameState::Move dummyMove = {-1, 0, 0};
@@ -191,8 +423,8 @@ AStarSolver::Result AStarSolver::solve(const GameState& start, int maxIterations
         AStarNode* current = open.pop();
         ++result.expanded;
 
-        int knownBest = 0;
         unsigned long currentKey = makeTemporalKey(*current->state, temporalPeriod);
+        int knownBest = 0;
         if (bestCosts.tryGet(currentKey, knownBest) && current->g > knownBest) {
             ++iterations;
             continue;
@@ -200,19 +432,16 @@ AStarSolver::Result AStarSolver::solve(const GameState& start, int maxIterations
 
         if (current->state->isGoal()) {
             int count = 0;
-            for (AStarNode* node = current; node != nullptr && node->parent != nullptr; node = node->parent) {
-                ++count;
-            }
+            for (AStarNode* node = current; node && node->parent; node = node->parent) ++count;
 
             GameState::Move* moves = new GameState::Move[count];
-            int writeIndex = count - 1;
-            for (AStarNode* node = current; node != nullptr && node->parent != nullptr; node = node->parent) {
-                moves[writeIndex--] = node->moveFromParent;
-            }
+            int wi = count - 1;
+            for (AStarNode* node = current; node && node->parent; node = node->parent)
+                moves[wi--] = node->moveFromParent;
 
-            result.found = true;
+            result.found     = true;
             result.moveCount = count;
-            result.moves = moves;
+            result.moves     = moves;
             return result;
         }
 
@@ -227,15 +456,14 @@ AStarSolver::Result AStarSolver::solve(const GameState& start, int maxIterations
             for (int m = 0; m < moveCount; ++m) {
                 GameState nextState = *current->state;
                 if (!nextState.applyMove(movesBuffer[m])) continue;
-            // prune states that exceed the level's step limit
-            if (stepLimit > 0 && nextState.getStep() > stepLimit) continue;
+                if (stepLimit > 0 && nextState.getStep() > stepLimit) continue;
 
                 int moveCost = (movesBuffer[m].distance == 0) ? 0 : movesBuffer[m].distance;
-                int newG = current->g + moveCost;
+                int newG     = current->g + moveCost;
                 unsigned long nextKey = makeTemporalKey(nextState, temporalPeriod);
                 if (!bestCosts.setIfBetter(nextKey, newG)) continue;
-                int newH = heuristic(nextState);
 
+                int newH = heuristic(nextState);
                 AStarNode* child = arena.create(nextState, current, movesBuffer[m], newG, newH);
                 open.push(child);
                 ++result.generated;
@@ -245,33 +473,44 @@ AStarSolver::Result AStarSolver::solve(const GameState& start, int maxIterations
         ++iterations;
     }
 
-    // If not found, try a fallback uniform-cost search (heuristic=0) to ensure completeness
+    // Fallback: búsqueda de costo uniforme (heurística = 0) para garantizar completitud
     if (!result.found) {
-        // clear structures by recreating them
-        MinHeap open2;
+        std::cout << "A* exhausted. Starting uniform cost fallback. iterations: "
+                  << iterations << std::endl;
+
+        MinHeap       open2;
         BestCostTable best2;
-        NodeArena arena2;
+        NodeArena     arena2;
 
         AStarNode* root2 = arena2.create(start, nullptr, dummyMove, 0, 0);
         open2.push(root2);
 
-        int it2 = 0;
+        int it2  = 0;
         int max2 = maxIterations * 5;
+
         while (!open2.empty() && it2 < max2) {
             AStarNode* cur = open2.pop();
             ++result.expanded;
 
+            if (it2 % 50000 == 0)
+                std::cout << "Fallback Iterations: " << it2
+                          << " Step: " << cur->state->getStep()
+                          << " g: "    << cur->g << std::endl;
+
             if (cur->state->isGoal()) {
                 int count = 0;
-                for (AStarNode* node = cur; node != nullptr && node->parent != nullptr; node = node->parent) ++count;
+                for (AStarNode* node = cur; node && node->parent; node = node->parent) ++count;
                 GameState::Move* moves = new GameState::Move[count];
                 int wi = count - 1;
-                for (AStarNode* node = cur; node != nullptr && node->parent != nullptr; node = node->parent) moves[wi--] = node->moveFromParent;
-                result.found = true; result.moveCount = count; result.moves = moves; return result;
+                for (AStarNode* node = cur; node && node->parent; node = node->parent)
+                    moves[wi--] = node->moveFromParent;
+                result.found = true; result.moveCount = count; result.moves = moves;
+                return result;
             }
 
             unsigned long curKey = makeTemporalKey(*cur->state, temporalPeriod);
-            int kb = 0; if (best2.tryGet(curKey, kb) && cur->g > kb) { ++it2; continue; }
+            int kb = 0;
+            if (best2.tryGet(curKey, kb) && cur->g > kb) { ++it2; continue; }
             best2.setIfBetter(curKey, cur->g);
 
             int blks = cur->state->getBlockCount();
@@ -302,13 +541,10 @@ AStarSolver::Result AStarSolver::solve(const GameState& start, int maxIterations
 }
 
 void AStarSolver::freeResult(Result& result) {
-    if (result.moves != nullptr) {
-        delete[] result.moves;
-    }
-
-    result.moves = nullptr;
+    if (result.moves != nullptr) delete[] result.moves;
+    result.moves     = nullptr;
     result.moveCount = 0;
-    result.found = false;
-    result.expanded = 0;
+    result.found     = false;
+    result.expanded  = 0;
     result.generated = 0;
 }

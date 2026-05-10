@@ -356,8 +356,7 @@ private:
             }
             std::cout << '\n';
         }
-
-        std::cout << "Leyenda: # pared, minuscula bloque, MAYUSCULA salida, . vacio\n";
+        
     }
 
     static char cellCharAt(const GameState& state, int row, int col) {
@@ -400,8 +399,8 @@ private:
         const Board& board = state.getBoard();
         for (int i = 0; i < board.getGateCount(); ++i) {
             const Gate& gate = board.getGates()[i];
-            if (gate.getX() == row && gate.getY() == col) {
-                return gate.getColorAtStep(state.getStep());
+            if (gate.occupiesCell(row, col)) {
+                return toUpper(gate.getColorAtStep(state.getStep()));
             }
         }
         return '\0';

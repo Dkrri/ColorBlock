@@ -80,6 +80,8 @@ int GameState::generateMovementsForBlock(int blockId, Move* movements, int maxMo
     const int maxDistance = board.getWidth() + board.getHeight();
 
     for (int direction = 0; direction < DIR_COUNT; ++direction) {
+        bool blockedByGate = false;
+        
         for (int distance = 1; distance <= maxDistance && count < maxMovements; ++distance) {
             Move move;
             move.blockId = blockId;
@@ -89,8 +91,60 @@ int GameState::generateMovementsForBlock(int blockId, Move* movements, int maxMo
             GameState candidate(*this);
             if (candidate.applyMove(move)) {
                 movements[count++] = move;
+                blockedByGate = false;
             } else {
-                break;
+                // Si falla en distancia 1, verificar si es por puerta
+                if (distance == 1) {
+                    blockedByGate = false;
+                    const Block& block = blocks[index];
+                    if (block.getColorLock() <= 0) {
+                        for (int g = 0; g < board.getGateCount(); ++g) {
+                            const Gate& gate = board.getGates()[g];
+                            bool adjacentToGate = false;
+                            int gateLen = gate.getInitialLength();
+                            int gateStart = (gate.getOrientation() == 'V') ? gate.getX() : gate.getY();
+                            int gateEnd = gateStart + gateLen - 1;
+
+                            int blockStart = 0;
+                            int blockEnd = 0;
+                            if (direction == DIR_RIGHT || direction == DIR_LEFT) {
+                                blockStart = block.getX();
+                                blockEnd = block.getX() + block.getHeight() - 1;
+                            } else {
+                                blockStart = block.getY();
+                                blockEnd = block.getY() + block.getWidth() - 1;
+                            }
+
+                            bool overlapsSpan = (gateLen > 0 && blockStart <= gateEnd && gateStart <= blockEnd);
+
+                            if (direction == DIR_RIGHT && gate.getOrientation() == 'V') {
+                                adjacentToGate = (gate.getY() == block.getY() + block.getWidth());
+                                if (adjacentToGate && overlapsSpan) {
+                                    blockedByGate = true;
+                                }
+                            } else if (direction == DIR_LEFT && gate.getOrientation() == 'V') {
+                                adjacentToGate = (gate.getY() == block.getY() - 1);
+                                if (adjacentToGate && overlapsSpan) {
+                                    blockedByGate = true;
+                                }
+                            } else if (direction == DIR_DOWN && gate.getOrientation() == 'H') {
+                                adjacentToGate = (gate.getX() == block.getX() + block.getHeight());
+                                if (adjacentToGate && overlapsSpan) {
+                                    blockedByGate = true;
+                                }
+                            } else if (direction == DIR_UP && gate.getOrientation() == 'H') {
+                                adjacentToGate = (gate.getX() == block.getX() - 1);
+                                if (adjacentToGate && overlapsSpan) {
+                                    blockedByGate = true;
+                                }
+                            }
+                            if (blockedByGate) break;
+                        }
+                    }
+                    if (!blockedByGate) break;
+                } else {
+                    break;
+                }
             }
         }
     }
@@ -191,7 +245,7 @@ bool GameState::isValidPlacement(const Block& block, int ignoreBlockId) const {
 
             for (int g = 0; g < board.getGateCount(); ++g) {
                 const Gate& gate = board.getGates()[g];
-                if (gate.getX() == row && gate.getY() == col) {
+                if (gate.occupiesCell(row, col)) {
                     return false;
                 }
             }
@@ -283,13 +337,19 @@ bool GameState::tryGateCross(const Block& block, int direction, Block& outBlock)
             continue;
         }
 
+        int gateLen = gate.getInitialLength();
+        int gateStart = (gate.getOrientation() == 'V') ? gate.getX() : gate.getY();
+        int gateEnd = gateStart + gateLen - 1;
+
         Block candidate = block;
 
         if (direction == DIR_RIGHT && gate.getOrientation() == 'V') {
             if (gate.getY() != block.getY() + block.getWidth()) {
                 continue;
             }
-            if (gate.getX() < block.getX() || gate.getX() > block.getX() + block.getHeight() - 1) {
+            int blockTop = block.getX();
+            int blockBottom = block.getX() + block.getHeight() - 1;
+            if (gateLen <= 0 || blockTop > gateEnd || gateStart > blockBottom) {
                 continue;
             }
             candidate.setY(gate.getY() + 1);
@@ -297,7 +357,9 @@ bool GameState::tryGateCross(const Block& block, int direction, Block& outBlock)
             if (gate.getY() != block.getY() - 1) {
                 continue;
             }
-            if (gate.getX() < block.getX() || gate.getX() > block.getX() + block.getHeight() - 1) {
+            int blockTop = block.getX();
+            int blockBottom = block.getX() + block.getHeight() - 1;
+            if (gateLen <= 0 || blockTop > gateEnd || gateStart > blockBottom) {
                 continue;
             }
             candidate.setY(gate.getY() - block.getWidth());
@@ -305,7 +367,9 @@ bool GameState::tryGateCross(const Block& block, int direction, Block& outBlock)
             if (gate.getX() != block.getX() + block.getHeight()) {
                 continue;
             }
-            if (gate.getY() < block.getY() || gate.getY() > block.getY() + block.getWidth() - 1) {
+            int blockLeft = block.getY();
+            int blockRight = block.getY() + block.getWidth() - 1;
+            if (gateLen <= 0 || blockLeft > gateEnd || gateStart > blockRight) {
                 continue;
             }
             candidate.setX(gate.getX() + 1);
@@ -313,7 +377,9 @@ bool GameState::tryGateCross(const Block& block, int direction, Block& outBlock)
             if (gate.getX() != block.getX() - 1) {
                 continue;
             }
-            if (gate.getY() < block.getY() || gate.getY() > block.getY() + block.getWidth() - 1) {
+            int blockLeft = block.getY();
+            int blockRight = block.getY() + block.getWidth() - 1;
+            if (gateLen <= 0 || blockLeft > gateEnd || gateStart > blockRight) {
                 continue;
             }
             candidate.setX(gate.getX() - block.getHeight());

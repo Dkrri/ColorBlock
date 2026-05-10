@@ -230,7 +230,8 @@ bool FileParser::parseExitLine(const char* line, int& x, int& y, char& color, ch
     return false;
 }
 
-bool FileParser::parseGateLine(const char* line, int& x, int& y, char& ori, char& ci, char& cf, int& step) {
+bool FileParser::parseGateLine(const char* line, int& x, int& y, char& ori, int& li, char& ci, char& cf, int& step) {
+    li = 1;
     // Formato PDF: "COLOR=a X=2 Y=7 ORIENTATION=V CI=a CF=c STEP=1"
     const char* pos = std::strstr(line, "X=");
     const char* posColor = std::strstr(line, "COLOR=");
@@ -244,6 +245,10 @@ bool FileParser::parseGateLine(const char* line, int& x, int& y, char& ori, char
         }
         pos = std::strstr(line, "ORIENTATION=");
         if (!pos || std::sscanf(pos, "ORIENTATION=%c", &ori) != 1) {
+            return false;
+        }
+        pos = std::strstr(line, "LI=");
+        if (pos != nullptr && std::sscanf(pos, "LI=%d", &li) != 1) {
             return false;
         }
         pos = std::strstr(line, "CI=");
@@ -261,7 +266,13 @@ bool FileParser::parseGateLine(const char* line, int& x, int& y, char& ori, char
         return true;
     }
 
+    if (std::sscanf(line, "%d,%d,%c,%d,%c,%c,%d", &x, &y, &ori, &li, &ci, &cf, &step) == 7) {
+        return true;
+    }
     if (std::sscanf(line, "%d,%d,%c,%c,%c,%d", &x, &y, &ori, &ci, &cf, &step) == 6) {
+        return true;
+    }
+    if (std::sscanf(line, "X=%d,Y=%d,ORI=%c,LI=%d,CI=%c,CF=%c,STEP=%d", &x, &y, &ori, &li, &ci, &cf, &step) == 7) {
         return true;
     }
     if (std::sscanf(line, "X=%d,Y=%d,ORI=%c,CI=%c,CF=%c,STEP=%d", &x, &y, &ori, &ci, &cf, &step) == 6) {
@@ -294,8 +305,18 @@ bool FileParser::loadLevel(const char* filePath, ParsedLevel& outLevel) {
             continue;
         }
 
+        if (currentSection[0] == '\0') {
+            parseMetaLine(line, width, height, stepLimit);
+        }
+
         if (line[0] == '[') {
-            std::snprintf(currentSection, sizeof(currentSection), "%s", line);
+            if (std::strcmp(line, "[META]") == 0) {
+                std::strcpy(currentSection, "[META]");
+            } else if (std::strcmp(line, "[BLOCK]") == 0) {
+                std::strcpy(currentSection, "[BLOCK]");
+            } else {
+                currentSection[0] = '\0';
+            }
             continue;
         }
 
@@ -349,7 +370,19 @@ bool FileParser::loadLevel(const char* filePath, ParsedLevel& outLevel) {
 
         trimLine(line);
         if (line[0] == '[') {
-            std::snprintf(currentSection, sizeof(currentSection), "%s", line);
+            if (std::strcmp(line, "[BLOCK]") == 0) {
+                std::strcpy(currentSection, "[BLOCK]");
+            } else if (std::strcmp(line, "[WALL]") == 0) {
+                std::strcpy(currentSection, "[WALL]");
+            } else if (std::strcmp(line, "[EXIT]") == 0) {
+                std::strcpy(currentSection, "[EXIT]");
+            } else if (std::strcmp(line, "[GATE]") == 0) {
+                std::strcpy(currentSection, "[GATE]");
+            } else if (std::strcmp(line, "[META]") == 0) {
+                std::strcpy(currentSection, "[META]");
+            } else {
+                currentSection[0] = '\0';
+            }
             continue;
         }
 
@@ -432,11 +465,12 @@ bool FileParser::loadLevel(const char* filePath, ParsedLevel& outLevel) {
             int x = 0;
             int y = 0;
             char ori = ' ';
+            int li = 1;
             char ci = ' ';
             char cf = ' ';
             int step = 0;
-            if (parseGateLine(line, x, y, ori, ci, cf, step)) {
-                Gate gateObj(x, y, ori, ci, cf, step);
+            if (parseGateLine(line, x, y, ori, li, ci, cf, step)) {
+                Gate gateObj(x, y, ori, li, ci, cf, step);
                 outLevel.board->addGate(gateObj);
             }
         }

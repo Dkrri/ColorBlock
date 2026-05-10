@@ -43,6 +43,6 @@ private:
     static bool applyMaskToGeometry(const char* mask, int w, int h, bool* geometry);
     static bool parseWallLine(const char* line, int& x, int& y, bool& isExit, bool& isGate);
     static bool parseExitLine(const char* line, int& x, int& y, char& color, char& ori, int& li, int& lf, int& step);
-    static bool parseGateLine(const char* line, int& x, int& y, char& ori, char& ci, char& cf, int& step);
+    static bool parseGateLine(const char* line, int& x, int& y, char& ori, int& li, char& ci, char& cf, int& step);
     static bool isSection(const char* line, const char* sectionName);
 };
